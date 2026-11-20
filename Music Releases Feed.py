@@ -177,22 +177,55 @@ class DeezerSource:
         return [(str(top["id"]), top.get("name") or name, f"https://www.deezer.com/artist/{top['id']}")]
 
     def releases(self, artist_id):
+        """Every release Deezer lists for this artist. Deezer's artist release list can lag
+        a week or more behind new releases, so the artist's top tracks and an album search
+        are also checked, and any release missing from the list is looked up directly."""
+        listed = set()
         index = 0
         while True:
             page = deezer_get(f"/artist/{artist_id}/albums", {"limit": 100, "index": index})
             batch = page.get("data", [])
             for album in batch:
-                yield {
-                    "source_id": f"deezer-{album.get('id')}",
-                    "title": album.get("title") or "Untitled",
-                    "type": DEEZER_TYPES.get(album.get("record_type"), "Release"),
-                    "date": parse_date(album.get("release_date")),
-                    "link": album.get("link") or f"https://www.deezer.com/album/{album.get('id')}",
-                    "cover": album.get("cover_xl") or album.get("cover_big") or album.get("cover"),
-                }
+                listed.add(album.get("id"))
+                yield self._release(album)
             index += len(batch)
             if not batch or index >= page.get("total", 0):
-                return
+                break
+
+        extra = []
+        try:
+            name = deezer_get(f"/artist/{artist_id}").get("name")
+            for track in deezer_get(f"/artist/{artist_id}/top", {"limit": 100}).get("data", []):
+                extra.append((track.get("album") or {}).get("id"))
+            if name:
+                query = 'artist:"{}"'.format(name.replace('"', ""))
+                for album in deezer_get("/search/album", {"q": query, "limit": 100}).get("data", []):
+                    if str((album.get("artist") or {}).get("id")) == str(artist_id):
+                        extra.append(album.get("id"))
+        except Exception as e:
+            print(f"::warning::Extra Deezer check for artist {artist_id} failed: {e}")
+            return
+        for album_id in dict.fromkeys(extra):
+            if not album_id or album_id in listed:
+                continue
+            listed.add(album_id)
+            try:
+                album = deezer_get(f"/album/{album_id}")
+            except NotFound:
+                continue
+            if str((album.get("artist") or {}).get("id")) == str(artist_id):
+                yield self._release(album)
+
+    @staticmethod
+    def _release(album):
+        return {
+            "source_id": f"deezer-{album.get('id')}",
+            "title": album.get("title") or "Untitled",
+            "type": DEEZER_TYPES.get(album.get("record_type"), "Release"),
+            "date": parse_date(album.get("release_date")),
+            "link": album.get("link") or f"https://www.deezer.com/album/{album.get('id')}",
+            "cover": album.get("cover_xl") or album.get("cover_big") or album.get("cover"),
+        }
 
     def cover(self, release):
         return release.get("cover")
@@ -362,7 +395,7 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     write_feed(items, today, backup_reason)
     write_index()
-    print_report(report, len(items), source, backup_reason)
+    print_report(report, len(items), source, backup_reason, items)
 
 
 def release_guid(rel):
@@ -438,7 +471,7 @@ def write_index():
         f.write(page)
 
 
-def print_report(report, item_count, source, backup_reason):
+def print_report(report, item_count, source, backup_reason, items=()):
     text = ["## Release feed report\n"]
     if backup_reason:
         text.append(f"⚠️ **Deezer wasn't working ({md(backup_reason)}), so this run used the MusicBrainz backup.**\n")
@@ -446,6 +479,10 @@ def print_report(report, item_count, source, backup_reason):
              f"| Line in {ARTISTS_FILE} | Matched artist(s) | Notes |",
              "|---|---|---|"]
     text += [f"| {md(line)} | {m} | {n} |" for line, m, n in report]
+    if items:
+        text += ["", "### Releases in the feed", "", "| Released | Artist | Title | Type |", "|---|---|---|---|"]
+        text += [f"| {it['date'].isoformat()} | {md(it['artist'])} | [{md(it['title'])}]({it['link']}) | {md(it['type'])} |"
+                 for it in items]
     output = "\n".join(text) + "\n"
     print(output)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
