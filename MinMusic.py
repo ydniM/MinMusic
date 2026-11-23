@@ -45,7 +45,7 @@ OUT_DIR = "site"
 
 REPO = os.environ.get("GITHUB_REPOSITORY", "")
 REPO_URL = f"https://github.com/{REPO}" if REPO else "https://github.com"
-USER_AGENT = f"personal-release-feed/1.1 ( {REPO_URL} )"   # MusicBrainz asks for contact info here
+USER_AGENT = f"MinMusic/1.1 ( {REPO_URL} )"   # MusicBrainz asks for contact info here
 
 DEEZER = "https://api.deezer.com"
 MUSICBRAINZ = "https://musicbrainz.org/ws/2/"

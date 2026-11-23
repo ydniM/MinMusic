@@ -1,8 +1,8 @@
-# Music Releases Feed
+# MinMusic
 
 New releases from artists I listen to, checked daily.
 
-**Feed:** https://ydnim.github.io/Music-Releases-Feed/feed.xml
+**Feed:** https://ydnim.github.io/MinMusic/feed.xml
 
 ## Artists.txt
 
