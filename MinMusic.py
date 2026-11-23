@@ -38,7 +38,7 @@ from xml.sax.saxutils import escape
 
 # ---- Settings you can change ----------------------------------------------
 DAYS_BACK = 90                     # how far back to include releases
-FEED_TITLE = "Music Releases"
+FEED_TITLE = "MinMusic"
 ARTISTS_FILE = "Artists.txt"
 OUT_DIR = "site"
 # ---------------------------------------------------------------------------
