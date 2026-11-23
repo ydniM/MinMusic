@@ -2,19 +2,18 @@ name: Update Feed
 
 on:
   schedule:
-    - cron: "17 11 * * *"   # every day at 11:17 UTC (7:17 AM Florida time in summer, 6:17 AM in winter)
-  workflow_dispatch:         # adds a "Run workflow" button so you can run it any time
+    # 5:17 UTC = 12:17 AM Florida time (1:17 AM in summer). GitHub usually starts
+    # scheduled runs hours late, so this tends to land in the early morning.
+    - cron: "17 5 * * *"
+  workflow_dispatch:
   push:
     branches: [main]
-    paths:                   # also runs right after you edit any of these files
+    paths:
       - "Artists.txt"
       - "MinMusic.py"
       - ".github/workflows/Update Feed.yml"
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+permissions: {}
 
 concurrency:
   group: pages
@@ -23,21 +22,29 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - name: Build the feed
-        run: python3 "MinMusic.py"
-      - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v5
+        run: python3 MinMusic.py
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
